@@ -1,0 +1,23 @@
+@font-face {
+    font-family: 'XingKai';
+    src: url('./assets/font/xingkai.ttf');
+    font-weight: 600;
+    font-style: normal;
+}
+
+
+.hello{
+    color:red;
+    font-family: 'XingKai';
+}
+#box{
+    width: 200px;
+    height: 200px;
+    background-image: url('./assets//image/icon.png');
+    background-size: 100%, 100%;
+    display: flex;
+}
+.image{
+    width: 300px;
+    height: 300px;
+}
