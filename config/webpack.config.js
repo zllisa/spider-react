@@ -1,13 +1,41 @@
 const path = require('path');
+const WebpackBarPlugin = require('webpackbar');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');//清除老的dist文件夹
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');//提取css
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');//压缩css
+const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
+const getPublicUrlOrPath = require('react-dev-utils/getPublicUrlOrPath');
+const webpack = require('webpack');
+const fs = require('fs');
 
+const appDirectory = fs.realpathSync(process.cwd());
+const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
+
+function resolve(moduleName) {
+  return require.resolve(moduleName);
+}
+const ASSET_PATH = process.env.ASSET_PATH || '/';
+
+const APP_PATH = fs.realpathSync(process.cwd());
+
+const PUBLIC_PATH = getPublicUrlOrPath(process.env.NODE_ENV === 'development',require(resolveApp('package.json')).homepage,"").slice(0, -1);
+
+console.log('lisasasa',PUBLIC_PATH)
 //代码复用
 const commonCssLoader = [
-  MiniCssExtractPlugin.loader,
-  'css-loader',
+  {
+    loader: MiniCssExtractPlugin.loader,
+    options: {
+      publicPath: '../'
+    }
+  },
+  {
+    loader: 'css-loader',
+    options: {
+      sourceMap: true,
+    },
+  },
   {
     loader: 'postcss-loader',
     options: {
@@ -19,12 +47,17 @@ const commonCssLoader = [
     }
   }
 ]
+const handler = (percentage, message, ...args) => {
+  // e.g. Output each progress message directly to the console:
+  console.info(percentage, message, ...args);
+};
 
 const config = {
-  entry: ['./src/index.js', './src/index.html'],
+  entry: ['./src/index.tsx', './public/index.html'],
   output: {
     filename: 'js/bundle.js',
-    path: path.resolve(__dirname, 'dist')
+    path: path.resolve('./', 'dist'),
+    publicPath:PUBLIC_PATH
   },
   module: {
     rules: [
@@ -40,30 +73,27 @@ const config = {
       {
         oneOf: [
           {
-            test: /\.js$/,
+            test: /\.(js|jsx)$/,
             exclude: /node_modules/,
             loader: 'babel-loader',
             options: {
-              presets: [
-                [
-                  '@babel/preset-env',
-                  {
-                    useBuiltIns: 'usage',
-                    corejs: {
-                      version: 3
-                    },
-                    targets: {
-                      chrome: '60',
-                      firefox: '60',
-                      ie: '9',
-                      safari: '10',
-                      edge: '17'
-                    }
-                  }
-                ]
-              ],
-              cacheDirectory:true
+              cacheDirectory: true
             }
+          },
+          {
+            test: /\.(ts|tsx?)$/,
+            use: [
+              {
+                loader: 'babel-loader',
+                options: {
+                  cacheDirectory: true
+                }
+              },
+              {
+                loader: 'ts-loader',
+                // exclude: /node_modules/
+              }
+            ],
           },
           {
             test: /\.css$/,
@@ -98,9 +128,15 @@ const config = {
           },
           {
             test: /\.(woff|woff2|eot|ttf|otf)$/,
-            loader: 'file-loader',
-            options: {
-              outputPath: 'fonts'
+            exclude: /(node_modules)/,
+            // loader: 'file-loader',
+            // options: {
+            //   outputPath:  'css/fonts'
+            // }
+            //webpack5的写法
+            type: 'asset/resource',
+            generator: {
+              filename: "css/fonts/[name].[contenthash:8].[ext]"
             }
           },
           //处理其他资源
@@ -115,20 +151,41 @@ const config = {
       }
     ]
   },
+  resolve: {
+    extensions: ['.tsx', '.ts', '.js'],
+  },
   plugins: [
     new CleanWebpackPlugin(),//webpack5 没有参数
     new HtmlWebpackPlugin({
-      template: './src/index.html',
-      //压缩html
+      inject: true,
+      template: './public/index.html',
+      // 压缩html
       minify: {
+        removeComments: true,
         collapseWhitespace: true,
-        removeComments: true
-      }
+        removeRedundantAttributes: true,
+        useShortDoctype: true,
+        removeEmptyAttributes: true,
+        removeStyleLinkTypeAttributes: true,
+        keepClosingSlash: true,
+        minifyJS: true,
+        minifyCSS: true,
+        minifyURLs: true,
+      },
     }),
     new MiniCssExtractPlugin({
       filename: 'css/[name].css'
     }),
-    new OptimizeCssAssetsPlugin()
+    new OptimizeCssAssetsPlugin(),
+    new WebpackBarPlugin(),
+    new webpack.DefinePlugin({
+      'PUBLIC_PATH': PUBLIC_PATH,
+      'APP_PATH':JSON.stringify(APP_PATH),
+    }),
+    new InterpolateHtmlPlugin(HtmlWebpackPlugin, {
+      'PUBLIC_PATH': PUBLIC_PATH,
+      'APP_PATH':JSON.stringify(APP_PATH),
+    }),
   ],
 };
 

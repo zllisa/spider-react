@@ -45,6 +45,8 @@ Loader的使用主要是对rule的 配置，**test**表示匹配哪些文件，*
 #### CSS文件--默认是将css文件作为[__webpack_modules__]对象的一个属性，属性名是文件名字-属性值是箭头函数，内容是eval(打包的字符串)，
   * 正常情况下是将css引入js文件（css-loader），再由js注入到html的header中的style标签（style-loader）
   * 将css提取成单独的css文件 使用单独的插件--MiniCssExtractPlugin (官方文档使用ExtractTextPlugin，但是有问题) 使用：需要在use中用插件替换style-loader，产生单独的css文件代替style-loader生成在js中的css文件
+
+    注意：提取单独的css文件要指定publicPath，否则会找不到图片和字体资源。
   * css文件的兼容问题-- postcss -->postcss-loader  post-preset-env，post-preset-env是帮助postcss找到package.json中browserslist里面的兼容配置。通过配置加载css的兼容样式
 
 #### 图片处理
@@ -79,7 +81,7 @@ Loader的使用主要是对rule的 配置，**test**表示匹配哪些文件，*
   
 **source-map**: 一种提供源代码到构建后代码的映射
  * 功能：如果构建后代码出错了，通过映射就可以追踪源代码出错的位置.
- * 模式：[inline-|hindden-|eval-|][nosources-][cheap-[module-]]source-map
+ * 模式：false | eval | [inline-|hidden-|eval-][nosources-][cheap-[module-]]source-map
 
 **DefinePlugin**
 
@@ -147,3 +149,93 @@ Loader的使用主要是对rule的 配置，**test**表示匹配哪些文件，*
 **压缩js 与 html**
  * js：生产环境自动压缩js代码 mode=‘production’
  * html：HtmlWebpackPlugin中使用minify属性
+
+
+### ✨Webpack5需要注意的一些写法
+
+- 使用WebpackDevServer，启动命令从webpack-dev-server 变成 webpack-serve
+- file-loader， raw-loader，url-loader不是必须的，可以使用内置的AssetModule
+  - asset/resource 生成一个单独的文件并导出URL。以前可以通过使用file-loader实现
+  - asset/inline 导出assets的data URI。以前可以通过使用url-loader实现
+  - asset/source 导出资产的源代码。以前可以通过使用raw-loader实现
+  - 如果使用webpack5，但是又不想修改之前的loader配置,可这么修改 type: 'javascript/auto',这会停止asset module 再次处理那些assets
+- 节点polyfill不再可用，
+- webpack-merge的引入变成  `const {merge} = require('webpack-merge');`
+- csv-loader来加载csv文件数据， xml-loader来加载xml文件数据 。可以使用 parser 而不是loader来处理toml, yamljs and json5格式的资源
+- webpack5 在package.js 里的browserslist 导致webpack-dev-server热更新失效。解决：需要在里添加 `target:'web'` 不能添加 `target: process.env.NODE_ENV === 'development'?'web':browserslist` 三目表达式依旧不起作用。
+
+
+- 更多参考： https://webpack.docschina.org/blog/2020-10-10-webpack-5-release/
+
+
+###  React Config with TS
+
+- 1.ts文件需要引入react与react-dom的描述文件，但是仍不识别组件的写法 所以需要tsx文件作为入口文件 ` @types/react  @types/react-dom`
+
+
+
+### 关于Babel --提供ES5的全部环境，避免ES6的语法在浏览器不兼容（尤其是IE）。
+核心原理是AST（抽象语法树）：首先将源码转换成AST，然后对AST进行处理生成新的AST，最后将新的AST生成JS代码，整个编译过程可以氛围3个阶段`parseing-->transforming-->generating` 都是围绕AST去做的。
+
+当你在webpack的js中使用babel-loader处理js的语法兼容时，你需要在` options:{ presets:[],plugins:[]}`做一些babel的配置，使其转换一些js的新语法。
+
+基础安装包： ` @babel-/core  @babel/polyfill  @babel/preset-env` 如果你需要使用babel的命令需要安装` @babel/cli` 。` babel-loader` 在webpack中处理js需要的loader。
+对于ts 和react 需要额外添加的包： ` @babel/preset-react  @babel/preset-typescript`
+
+#### babel的作用：
+- 1.babelcore进行语法转换，基本语法 
+- 2.通过ployfill方式预先在目标环境添加新的特性
+- 3.源码转换？？
+
+#### babel的基本概念
+
+- 插件：babel本身就是构建在插件之上的，babel的插件主要氛围两种：语法插件 和 转换插件。插件的执行顺序是在presets之前的，里面插件的顺序是从数组左侧向右执行的。
+  - 语法插件：只允许babel解析Parse一些特定的语法而非转换，可以在AST转换是使用，以支持解析新语法。
+
+ ```js
+ import * as babel from "@babel/core";
+const code = babel.transformFromAstSync(ast, {
+    //支持可选链
+    plugins: ["@babel/plugin-proposal-optional-chaining"],
+    babelrc: false
+}).code;
+ ```
+
+ - 转换插件：转换插件会启用响应的语法插件去解析。
+  可以直接在plugins中加入你需要使用的插件，例如： ` { "plugins": ["@babel/plugin-transform-arrow-functions"] }`，这个插件也是卸载
+
+- 预设Preset：就是一堆插件的集合，从而达到某些转译能力，预设的执行顺序是从又往左，与插件相反。
+   
+  例如：`@babel/preset-react ` 就是 `@babel/plugin-syntax-jsx  @babel/plugin-transform-react-jsx  @babel/plugin-transform-react-display-name`几种插件的集合。
+
+  当然我们也可以手动的在 plugins 中配置一系列的 plugin 来达到目的，就像这样：`"plugins":["@babel/plugin-syntax-jsx","@babel/plugin-transform-react-jsx","@babel/plugin-transform-react-display-name"] `. 但是这写是常用的插件，这样写很麻烦所以才会有presets，使用预设就会轻松的多。
+
+- Polyfill 垫片：就是垫平不同浏览器环境的差异。`@babel/polyfill`模块可以模拟完整的ES5环境。注意：`@babel/polyfill`不是在babel的配置文件中配置的，而是在我们的代码中引入`import '@babel/polyfill';`。但是引入之后是将整个polyfill引入，打包的体积瞬间变大（80多k）。所以我们需要按需加载的功能。Babel也想到了，所以：
+  - useBuiltIns: `@babel/preset-env`中提供的useBuiltIns属性就会自动进行按需加载polyfill，不需要手动引入。 `@babel/preset-env`的出现有点像民族统一，先是把 stage-x 干掉了，又怎么会漏掉 Polyfill 这一功能。
+  配置如下：
+  ```js
+  [
+        '@babel/preset-env',
+        {
+          useBuiltIns: 'usage',
+          corejs: {
+            version: 3
+          },
+          targets: {
+            chrome: '60',
+            firefox: '60',
+            ie: '9',
+            safari: '10',
+            edge: '17'
+          }
+        },
+      ]
+  ```
+  ⚠️注意：这里需要使用另外一个包core-js@3，且版本是3. 这里是因为`@babel/polyfill`模块包括`core-js`和`regenerator runtime`，`core-js`是其他的公司所开发。
+
+
+#### 说说Babel的其他插件：
+
+- `@babel/plugin-transform-runtime` 可以让Babel在编译中代码复用的插件，从而减少打包体积。 很多个文件同时引入某一个babel，如果没有这个插件，就会引用很多遍。引用这个插件只会引用一次。
+  ⚠️注意：他有一个CP `@babel/runtime` 安装了上面的下面的就也装上吧。
+
