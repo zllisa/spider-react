@@ -8,20 +8,10 @@ const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
 const getPublicUrlOrPath = require('react-dev-utils/getPublicUrlOrPath');
 const webpack = require('webpack');
 const fs = require('fs');
+const {getClientEnvironment,paths} = require('./envAndPath');
 
-const appDirectory = fs.realpathSync(process.cwd());
-const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
+const env = getClientEnvironment(paths.publicUrlOrPath.slice(0, -1));
 
-function resolve(moduleName) {
-  return require.resolve(moduleName);
-}
-const ASSET_PATH = process.env.ASSET_PATH || '/';
-
-const APP_PATH = fs.realpathSync(process.cwd());
-
-const PUBLIC_PATH = getPublicUrlOrPath(process.env.NODE_ENV === 'development',require(resolveApp('package.json')).homepage,"").slice(0, -1);
-
-console.log('lisasasa',PUBLIC_PATH)
 //代码复用
 const commonCssLoader = [
   {
@@ -57,7 +47,7 @@ const config = {
   output: {
     filename: 'js/bundle.js',
     path: path.resolve('./', 'dist'),
-    publicPath:PUBLIC_PATH
+    publicPath:paths.publicUrlOrPath
   },
   module: {
     rules: [
@@ -178,14 +168,8 @@ const config = {
     }),
     new OptimizeCssAssetsPlugin(),
     new WebpackBarPlugin(),
-    new webpack.DefinePlugin({
-      'PUBLIC_PATH': PUBLIC_PATH,
-      'APP_PATH':JSON.stringify(APP_PATH),
-    }),
-    new InterpolateHtmlPlugin(HtmlWebpackPlugin, {
-      'PUBLIC_PATH': PUBLIC_PATH,
-      'APP_PATH':JSON.stringify(APP_PATH),
-    }),
+    new webpack.DefinePlugin(env.stringified),
+    new InterpolateHtmlPlugin(HtmlWebpackPlugin, env.raw),
   ],
 };
 

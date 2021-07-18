@@ -8,7 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "node scripts/build.js",
     "start": "webpack --config config/webpack.dev.js",
-    "start:dev": "webpack serve --open --config config/webpack.dev.js --host 172.25.3.100"
+    "start:dev": "webpack serve --open --config config/webpack.dev.js"
   },
   "author": "lisa",
   "license": "ISC",
